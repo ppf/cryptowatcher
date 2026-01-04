@@ -4,6 +4,8 @@ Rust TUI app for real-time cryptocurrency price monitoring with live charts.
 
 ![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)
 
+![Cryptowatcher](assets/screenshot.png)
+
 ## Features
 
 - Real-time price tracking via Binance API
