@@ -34,15 +34,14 @@ pub struct BinanceClient {
 }
 
 impl BinanceClient {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self> {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
-            .build()
-            .expect("Failed to create HTTP client");
-        Self {
+            .build()?;
+        Ok(Self {
             client,
             base_url: "https://api.binance.com".to_string(),
-        }
+        })
     }
 
     pub async fn get_ticker_24h(&self, symbol: &str) -> Result<TickerData> {
@@ -56,15 +55,17 @@ impl BinanceClient {
     }
 
     pub async fn get_tickers(&self, symbols: &[String]) -> Vec<Result<TickerData>> {
-        let mut results = Vec::new();
-        for symbol in symbols {
-            results.push(self.get_ticker_24h(symbol).await);
-        }
-        results
+        futures::future::join_all(symbols.iter().map(|s| self.get_ticker_24h(s))).await
     }
 
-    /// Fetch historical 15-minute klines (last `limit` periods)
-    /// Returns Vec of (timestamp_ms, close_price)
+    pub async fn get_klines_batch(
+        &self,
+        symbols: &[String],
+        limit: u32,
+    ) -> Vec<Result<Vec<(i64, f64)>>> {
+        futures::future::join_all(symbols.iter().map(|s| self.get_klines(s, limit))).await
+    }
+
     pub async fn get_klines(&self, symbol: &str, limit: u32) -> Result<Vec<(i64, f64)>> {
         let url = format!(
             "{}/api/v3/klines?symbol={}&interval=15m&limit={}",
@@ -90,11 +91,5 @@ impl BinanceClient {
             .collect();
 
         Ok(prices)
-    }
-}
-
-impl Default for BinanceClient {
-    fn default() -> Self {
-        Self::new()
     }
 }

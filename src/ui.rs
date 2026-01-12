@@ -202,3 +202,33 @@ fn format_price_short(price: f64) -> String {
         format!("${:.2}", price)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_volume() {
+        assert_eq!(format_volume(500.0), "500");
+        assert_eq!(format_volume(1_500.0), "1.5K");
+        assert_eq!(format_volume(1_500_000.0), "1.5M");
+        assert_eq!(format_volume(1_500_000_000.0), "1.5B");
+    }
+
+    #[test]
+    fn test_format_price() {
+        assert_eq!(format_price(0.50), "$0.50");
+        assert_eq!(format_price(99.99), "$99.99");
+        assert_eq!(format_price(1000.00), "$1,000.00");
+        assert_eq!(format_price(42069.42), "$42,069.42");
+        assert_eq!(format_price(100000.00), "$100,000.00");
+    }
+
+    #[test]
+    fn test_format_price_short() {
+        assert_eq!(format_price_short(0.50), "$0.50");
+        assert_eq!(format_price_short(999.99), "$999.99");
+        assert_eq!(format_price_short(1500.0), "$1.5k");
+        assert_eq!(format_price_short(1_500_000.0), "$1.5M");
+    }
+}

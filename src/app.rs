@@ -124,8 +124,11 @@ impl App {
 
     pub async fn load_historical(&mut self, client: &BinanceClient) {
         self.status_message = "Loading history...".to_string();
-        for coin in &mut self.coins {
-            match client.get_klines(&coin.symbol, MAX_HISTORY as u32).await {
+        let symbols: Vec<String> = self.coins.iter().map(|c| c.symbol.clone()).collect();
+        let results = client.get_klines_batch(&symbols, MAX_HISTORY as u32).await;
+
+        for (coin, result) in self.coins.iter_mut().zip(results.into_iter()) {
+            match result {
                 Ok(data) => coin.load_history(data),
                 Err(e) => {
                     self.status_message =
@@ -179,5 +182,75 @@ impl App {
             }
             None => "Never".to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_coin_data_new() {
+        let coin = CoinData::new("BTCUSDT");
+        assert_eq!(coin.symbol, "BTCUSDT");
+        assert_eq!(coin.display_name, "BTC/USDT");
+        assert_eq!(coin.price, 0.0);
+        assert!(coin.price_history.is_empty());
+    }
+
+    #[test]
+    fn test_coin_data_load_history() {
+        let mut coin = CoinData::new("BTCUSDT");
+        let history = vec![(1000, 100.0), (2000, 110.0), (3000, 105.0)];
+        coin.load_history(history);
+
+        assert_eq!(coin.price_history.len(), 3);
+        assert_eq!(coin.price, 105.0);
+    }
+
+    #[test]
+    fn test_coin_data_history_data() {
+        let mut coin = CoinData::new("BTCUSDT");
+        coin.load_history(vec![(1000, 100.0), (2000, 200.0)]);
+
+        let data = coin.history_data();
+        assert_eq!(data, vec![(0.0, 100.0), (1.0, 200.0)]);
+    }
+
+    #[test]
+    fn test_coin_data_price_bounds() {
+        let mut coin = CoinData::new("BTCUSDT");
+        coin.load_history(vec![(1000, 100.0), (2000, 200.0)]);
+
+        let (min, max) = coin.price_bounds();
+        assert!(min < 100.0);
+        assert!(max > 200.0);
+    }
+
+    #[test]
+    fn test_coin_data_price_bounds_empty() {
+        let coin = CoinData::new("BTCUSDT");
+        let (min, max) = coin.price_bounds();
+        assert_eq!(min, 0.0);
+        assert_eq!(max, 100.0);
+    }
+
+    #[test]
+    fn test_app_scroll() {
+        let mut app = App::new(vec![
+            "BTCUSDT".to_string(),
+            "ETHUSDT".to_string(),
+            "SOLUSDT".to_string(),
+        ]);
+        assert_eq!(app.scroll_offset, 0);
+
+        app.scroll_down();
+        assert_eq!(app.scroll_offset, 1);
+
+        app.scroll_up();
+        assert_eq!(app.scroll_offset, 0);
+
+        app.scroll_up();
+        assert_eq!(app.scroll_offset, 0);
     }
 }

@@ -36,13 +36,15 @@ struct Args {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    let symbols: Vec<String> = args
-        .coins
-        .iter()
-        .take(MAX_COINS)
-        .filter(|c| c.chars().all(|ch| ch.is_alphanumeric()))
-        .map(|c| format!("{}USDT", c.to_uppercase().trim()))
-        .collect();
+    let mut symbols: Vec<String> = Vec::new();
+    for coin in args.coins.iter().take(MAX_COINS) {
+        let trimmed = coin.trim().to_uppercase();
+        if trimmed.chars().all(|ch| ch.is_alphanumeric()) {
+            symbols.push(format!("{}USDT", trimmed));
+        } else {
+            eprintln!("Warning: Skipping invalid coin symbol: {}", coin);
+        }
+    }
 
     if symbols.is_empty() {
         eprintln!("Error: No valid coin symbols provided");
@@ -74,7 +76,7 @@ async fn run<B: Backend>(
     tick_rate: Duration,
 ) -> Result<()> {
     let mut app = App::new(symbols);
-    let client = BinanceClient::new();
+    let client = BinanceClient::new()?;
     let mut events = EventHandler::new(tick_rate);
 
     // Load last hour's history on startup
