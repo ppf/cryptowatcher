@@ -7,6 +7,8 @@ use ratatui::{
     Frame,
 };
 
+use Constraint::Ratio;
+
 use crate::app::{App, CoinData};
 
 // Synthwave color palette
@@ -29,25 +31,47 @@ const CHART_COLORS: [Color; 6] = [
 pub fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
 
-    let visible_coins = app.coins.len().min(area.height as usize / 8).max(1);
-    let mut constraints: Vec<Constraint> = (0..visible_coins)
-        .map(|_| Constraint::Ratio(1, visible_coins as u32))
-        .collect();
-    constraints.push(Constraint::Length(3));
+    // Split into main area + status bar
+    let main_chunks = Layout::vertical([Ratio(1, 1), Constraint::Length(3)]).split(area);
+    let main_area = main_chunks[0];
 
-    let chunks = Layout::vertical(constraints).split(area);
+    // Get visible coins for current page
+    let visible = app.visible_coins();
+    let grid_areas = calculate_grid_layout(visible.len(), main_area);
 
-    for (i, coin) in app
-        .coins
-        .iter()
-        .skip(app.scroll_offset)
-        .take(visible_coins)
-        .enumerate()
-    {
-        render_coin_chart(frame, chunks[i], coin, CHART_COLORS[i % CHART_COLORS.len()]);
+    for (i, (coin, chart_area)) in visible.iter().zip(grid_areas.iter()).enumerate() {
+        render_coin_chart(
+            frame,
+            *chart_area,
+            coin,
+            CHART_COLORS[i % CHART_COLORS.len()],
+        );
     }
 
-    render_status_bar(frame, chunks[visible_coins], app);
+    render_status_bar(frame, main_chunks[1], app);
+}
+
+fn calculate_grid_layout(count: usize, area: Rect) -> Vec<Rect> {
+    match count {
+        0 => vec![],
+        1 => vec![area],
+        2 => Layout::horizontal([Ratio(1, 2), Ratio(1, 2)])
+            .split(area)
+            .to_vec(),
+        3 => {
+            // 1 top full-width + 2 bottom split
+            let rows = Layout::vertical([Ratio(1, 2), Ratio(1, 2)]).split(area);
+            let bot = Layout::horizontal([Ratio(1, 2), Ratio(1, 2)]).split(rows[1]);
+            vec![rows[0], bot[0], bot[1]]
+        }
+        _ => {
+            // 4+ coins: 2x2 grid
+            let rows = Layout::vertical([Ratio(1, 2), Ratio(1, 2)]).split(area);
+            let top = Layout::horizontal([Ratio(1, 2), Ratio(1, 2)]).split(rows[0]);
+            let bot = Layout::horizontal([Ratio(1, 2), Ratio(1, 2)]).split(rows[1]);
+            vec![top[0], top[1], bot[0], bot[1]]
+        }
+    }
 }
 
 fn render_coin_chart(frame: &mut Frame, area: Rect, coin: &CoinData, color: Color) {
@@ -135,15 +159,24 @@ fn render_coin_chart(frame: &mut Frame, area: Rect, coin: &CoinData, color: Colo
 }
 
 fn render_status_bar(frame: &mut Frame, area: Rect, app: &App) {
+    let total_pages = app.total_pages();
+    let page_indicator = if total_pages > 1 {
+        format!("Page {}/{}  ", app.page_index + 1, total_pages)
+    } else {
+        String::new()
+    };
+    let nav_label = if total_pages > 1 { "·Page" } else { "" };
+
     let status = Line::from(vec![
         Span::raw(" "),
         Span::styled("Q", Style::default().fg(CYAN).add_modifier(Modifier::BOLD)),
         Span::styled("·Quit  ", Style::default().fg(MUTED)),
         Span::styled("R", Style::default().fg(CYAN).add_modifier(Modifier::BOLD)),
         Span::styled("·Refresh  ", Style::default().fg(MUTED)),
-        Span::styled("↑↓", Style::default().fg(CYAN).add_modifier(Modifier::BOLD)),
-        Span::styled("·Scroll", Style::default().fg(MUTED)),
+        Span::styled("←→", Style::default().fg(CYAN).add_modifier(Modifier::BOLD)),
+        Span::styled(nav_label, Style::default().fg(MUTED)),
         Span::raw("          "),
+        Span::styled(&page_indicator, Style::default().fg(PINK)),
         Span::styled(
             format!("Updated {}", app.last_update_str()),
             Style::default().fg(MUTED),

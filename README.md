@@ -10,6 +10,7 @@ Rust TUI app for real-time cryptocurrency price monitoring with live charts.
 
 - Real-time price tracking via Binance API
 - Live price charts with 1-hour history
+- Dynamic grid layout (up to 4 charts visible)
 - 24h stats: high/low, volume, % change
 - Configurable coin list
 - Auto-refresh every 60 seconds
@@ -39,7 +40,7 @@ cryptowatcher --interval 30
 |-----|--------|
 | `q` | Quit |
 | `r` | Force refresh |
-| `↑/↓` | Scroll coins |
+| `←/→` | Page navigation (when >4 coins) |
 
 ## Dependencies
 

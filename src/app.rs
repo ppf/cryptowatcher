@@ -106,9 +106,11 @@ pub struct App {
     pub coins: Vec<CoinData>,
     pub last_update: Option<Instant>,
     pub running: bool,
-    pub scroll_offset: usize,
+    pub page_index: usize,
     pub status_message: String,
 }
+
+const CHARTS_PER_PAGE: usize = 4;
 
 impl App {
     pub fn new(symbols: Vec<String>) -> Self {
@@ -117,7 +119,7 @@ impl App {
             coins,
             last_update: None,
             running: true,
-            scroll_offset: 0,
+            page_index: 0,
             status_message: "Starting...".to_string(),
         }
     }
@@ -154,15 +156,25 @@ impl App {
         self.status_message = "Updated".to_string();
     }
 
-    pub fn scroll_up(&mut self) {
-        if self.scroll_offset > 0 {
-            self.scroll_offset -= 1;
+    pub fn visible_coins(&self) -> &[CoinData] {
+        let start = self.page_index * CHARTS_PER_PAGE;
+        let end = (start + CHARTS_PER_PAGE).min(self.coins.len());
+        &self.coins[start..end]
+    }
+
+    pub fn total_pages(&self) -> usize {
+        self.coins.len().div_ceil(CHARTS_PER_PAGE)
+    }
+
+    pub fn prev_page(&mut self) {
+        if self.page_index > 0 {
+            self.page_index -= 1;
         }
     }
 
-    pub fn scroll_down(&mut self) {
-        if self.scroll_offset < self.coins.len().saturating_sub(2) {
-            self.scroll_offset += 1;
+    pub fn next_page(&mut self) {
+        if self.page_index < self.total_pages().saturating_sub(1) {
+            self.page_index += 1;
         }
     }
 
@@ -236,21 +248,26 @@ mod tests {
     }
 
     #[test]
-    fn test_app_scroll() {
+    fn test_app_pagination() {
         let mut app = App::new(vec![
             "BTCUSDT".to_string(),
             "ETHUSDT".to_string(),
             "SOLUSDT".to_string(),
+            "XRPUSDT".to_string(),
+            "DOGEUSDT".to_string(),
         ]);
-        assert_eq!(app.scroll_offset, 0);
+        assert_eq!(app.page_index, 0);
+        assert_eq!(app.total_pages(), 2);
+        assert_eq!(app.visible_coins().len(), 4);
 
-        app.scroll_down();
-        assert_eq!(app.scroll_offset, 1);
+        app.next_page();
+        assert_eq!(app.page_index, 1);
+        assert_eq!(app.visible_coins().len(), 1);
 
-        app.scroll_up();
-        assert_eq!(app.scroll_offset, 0);
+        app.prev_page();
+        assert_eq!(app.page_index, 0);
 
-        app.scroll_up();
-        assert_eq!(app.scroll_offset, 0);
+        app.prev_page();
+        assert_eq!(app.page_index, 0);
     }
 }

@@ -99,8 +99,8 @@ async fn run<B: Backend>(
                     terminal.draw(|f| ui::render(f, &app))?;
                     app.fetch_prices(&client).await;
                 }
-                KeyCode::Up | KeyCode::Char('k') => app.scroll_up(),
-                KeyCode::Down | KeyCode::Char('j') => app.scroll_down(),
+                KeyCode::Left | KeyCode::Char('h') => app.prev_page(),
+                KeyCode::Right | KeyCode::Char('l') => app.next_page(),
                 _ => {}
             },
             AppEvent::Quit => app.quit(),
